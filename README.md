@@ -71,8 +71,13 @@ powershell -ExecutionPolicy Bypass -File scripts/resolve_pr_conflicts.ps1 -BaseB
 ```
 
 What it does:
-- fetches latest refs,
-- merges `origin/main` into your current feature branch,
-- resolves known high-churn files by keeping the feature-branch version (upgraded runtime),
-- fails fast if any additional files still need manual conflict resolution,
+- fetches latest refs from `origin`,
+- handles both fresh merges and already-in-progress merge states,
+- resolves known high-churn files by keeping the **current feature-branch** version,
+- checks for unresolved files and leftover `<<<<<<<` markers,
 - creates the merge commit when clean.
+
+If your PR is #3 and branch is `work`, final push is typically:
+```powershell
+git push origin work
+```
