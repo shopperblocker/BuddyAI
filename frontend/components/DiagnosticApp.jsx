@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 
 const DIMENSIONS = [
   {
@@ -218,11 +218,12 @@ function ResultsView({ answers, onSimulate }) {
     .map((s, i) => ({ score: s, dim: DIMENSIONS[i] }))
     .sort((a, b) => b.score - a.score);
 
-  const scoresPayload = DIMENSIONS.map((dim, i) => ({
-    id: dim.id,
-    label: dim.label,
-    score: dimensionScores[i],
-  }));
+  const scoresPayload = useMemo(
+    () => DIMENSIONS.map((dim, i) => ({ id: dim.id, label: dim.label, score: dimensionScores[i] })),
+    // dimensionScores values are stable after quiz completion
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
 
   const [insight, setInsight] = useState(null);
   const [insightLoading, setInsightLoading] = useState(true);
@@ -237,7 +238,7 @@ function ResultsView({ answers, onSimulate }) {
       .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
       .then((data) => { setInsight(data.insight); setInsightLoading(false); })
       .catch(() => { setInsightError("Couldn't load your insight right now."); setInsightLoading(false); });
-  }, []);
+  }, [scoresPayload]);
 
   return (
     <div style={{ maxWidth: 700, margin: "0 auto" }}>
@@ -296,7 +297,7 @@ function ResultsView({ answers, onSimulate }) {
           🎭 Practice a Real Situation
         </button>
         <p style={{ color: "#9CA3AF", fontSize: 12, marginTop: 8 }}>
-          Use BuddyAI to rehearse a social situation you're dreading
+          Use BuddyAI to rehearse a social situation you&apos;re dreading
         </p>
       </div>
 
@@ -415,7 +416,7 @@ function SimulatorView({ scores }) {
             Practice a Real Situation
           </h2>
           <p style={{ color: "#9CA3AF", fontSize: 14, lineHeight: 1.7, margin: 0 }}>
-            Tell BuddyAI what social situation you're dreading. It'll coach you through it like a calm, trusted friend — no pressure, no judgment.
+            Tell BuddyAI what social situation you&apos;re dreading. It&apos;ll coach you through it like a calm, trusted friend — no pressure, no judgment.
           </p>
         </div>
         <textarea
@@ -508,7 +509,7 @@ function SimulatorView({ scores }) {
             background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.2)",
           }}>
             <p style={{ color: "#A78BFA", fontSize: 14, fontWeight: 600, margin: "0 0 4px" }}>Session complete 💜</p>
-            <p style={{ color: "#9CA3AF", fontSize: 12, margin: 0 }}>You've completed 6 turns. You've got this.</p>
+            <p style={{ color: "#9CA3AF", fontSize: 12, margin: 0 }}>You&apos;ve completed 6 turns. You&apos;ve got this.</p>
           </div>
         )}
         <div ref={bottomRef} />
