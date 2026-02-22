@@ -44,7 +44,20 @@ curl.exe http://localhost:8000/test
 curl.exe http://localhost:8000/health
 ```
 
+
+Deterministic runtime verification:
+```bash
+python scripts/verify_updated_runtime.py
+```
+
+If you want the script to start the backend for you:
+```bash
+python scripts/verify_updated_runtime.py --spawn-backend
+```
+
 ### Optional nightly scan
 ```bash
 python scripts/nightly_scan.py
 ```
+
+> Note: GitHub code search can lag for new commits/repositories. Use direct file URLs or local checks above to verify immediately.
