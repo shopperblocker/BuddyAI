@@ -61,3 +61,18 @@ python scripts/nightly_scan.py
 ```
 
 > Note: GitHub code search can lag for new commits/repositories. Use direct file URLs or local checks above to verify immediately.
+
+
+## Resolving GitHub PR conflicts quickly (PowerShell)
+If GitHub shows conflicts on the feature branch (commonly in `backend/main.py`, `frontend/components/DiagnosticApp.jsx`, and `frontend/app/clinician/dashboard/page.tsx`), run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/resolve_pr_conflicts.ps1 -BaseBranch main
+```
+
+What it does:
+- fetches latest refs,
+- merges `origin/main` into your current feature branch,
+- resolves known high-churn files by keeping the feature-branch version (upgraded runtime),
+- fails fast if any additional files still need manual conflict resolution,
+- creates the merge commit when clean.
