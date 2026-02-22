@@ -11,6 +11,11 @@ frontend/out/
 .env.local
 .env*.local
 
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+
 # OS
 .DS_Store
 Thumbs.db
