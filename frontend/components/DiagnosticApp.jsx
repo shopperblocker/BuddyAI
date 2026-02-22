@@ -151,9 +151,108 @@ function getScoreColor(score) {
   return { bg: "#FEE2E2", text: "#991B1B", bar: "#EF4444", label: "Priority Area" };
 }
 
+// Voice prompts and responses (v2)
+function VoiceView({ scores, onSimulate }) {
+  const API = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
+  const [transcript, setTranscript] = useState("");
+  const [voiceReply, setVoiceReply] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleVoiceSubmit = async () => {
+    if (!transcript.trim() || loading) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`${API}/simulate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          situation: transcript,
+          scores,
+          messages: [{ role: "user", content: transcript }],
+        }),
+      });
+      const data = await res.json();
+      setVoiceReply(data.response);
+    } catch {
+      setVoiceReply("Couldn't connect. Please try again.");
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div style={{ maxWidth: 520, margin: "0 auto", padding: "40px 24px" }}>
+      <div style={{ textAlign: "center", marginBottom: 32 }}>
+        <div style={{ fontSize: 40, marginBottom: 12 }}>🎙️</div>
+        <h2 style={{ color: "white", fontSize: 22, fontWeight: 700, margin: "0 0 10px" }}>
+          Voice Mode
+        </h2>
+        <p style={{ color: "#9CA3AF", fontSize: 13, margin: 0 }}>
+          Speak or type your thoughts — BuddyAI responds with guided coaching.
+        </p>
+      </div>
+
+      <div style={{
+        background: "rgba(255,255,255,0.04)", borderRadius: 16, padding: 20,
+        border: "1px solid rgba(255,255,255,0.08)", marginBottom: 16,
+      }}>
+        <p style={{ color: "#A78BFA", fontSize: 11, fontWeight: 600, margin: "0 0 8px", textTransform: "uppercase", letterSpacing: 1 }}>
+          Your message
+        </p>
+        <textarea
+          value={transcript}
+          onChange={(e) => setTranscript(e.target.value)}
+          placeholder="Type or paste what you want to say aloud..."
+          rows={4}
+          style={{
+            width: "100%", padding: "12px", borderRadius: 10, boxSizing: "border-box",
+            background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)",
+            color: "white", fontSize: 14, resize: "vertical", outline: "none", fontFamily: "inherit",
+          }}
+        />
+      </div>
+
+      <button
+        onClick={handleVoiceSubmit}
+        disabled={!transcript.trim() || loading}
+        style={{
+          width: "100%", padding: "14px", borderRadius: 12, border: "none",
+          background: transcript.trim() && !loading ? "linear-gradient(135deg, #6366F1, #EC4899)" : "rgba(255,255,255,0.08)",
+          color: transcript.trim() && !loading ? "white" : "#6B7280",
+          fontSize: 15, fontWeight: 700, cursor: transcript.trim() && !loading ? "pointer" : "not-allowed",
+          marginBottom: 16,
+        }}
+      >
+        {loading ? "Processing..." : "🎙️ Send Voice Message →"}
+      </button>
+
+      {voiceReply && (
+        <div style={{
+          background: "rgba(167,139,250,0.1)", borderRadius: 16, padding: 20,
+          border: "1px solid rgba(167,139,250,0.2)",
+        }}>
+          <p style={{ color: "#A78BFA", fontSize: 11, fontWeight: 600, margin: "0 0 8px", textTransform: "uppercase", letterSpacing: 1 }}>
+            BuddyAI Response
+          </p>
+          <p style={{ color: "white", fontSize: 14, lineHeight: 1.7, margin: "0 0 16px" }}>{voiceReply}</p>
+          <button
+            onClick={() => onSimulate(scores)}
+            style={{
+              padding: "10px 20px", borderRadius: 10, border: "none",
+              background: "linear-gradient(135deg, #6366F1, #EC4899)",
+              color: "white", fontSize: 13, fontWeight: 700, cursor: "pointer",
+            }}
+          >
+            Continue in Simulator →
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Nav({ phase }) {
-  const steps = ["Assessment", "Results", "Simulator"];
-  const phaseToIndex = { quiz: 0, results: 1, simulator: 2 };
+  const steps = ["Assessment", "Results", "Voice", "Simulator"];
+  const phaseToIndex = { quiz: 0, results: 1, voice: 2, simulator: 3 };
   const currentIdx = phaseToIndex[phase] ?? 0;
   const isDark = phase !== "results";
 
@@ -202,7 +301,7 @@ function Nav({ phase }) {
   );
 }
 
-function ResultsView({ answers, onSimulate }) {
+function ResultsView({ answers, onSimulate, onVoice, onShareCard }) {
   const dimensionScores = DIMENSIONS.map((dim, di) => {
     const qScores = dim.questions.map((_, qi) => answers[di]?.[qi] || 0);
     const avg = qScores.reduce((a, b) => a + b, 0) / qScores.length;
@@ -283,8 +382,8 @@ function ResultsView({ answers, onSimulate }) {
         )}
       </div>
 
-      {/* Practice button */}
-      <div style={{ textAlign: "center", marginBottom: 32 }}>
+      {/* Action buttons */}
+      <div style={{ textAlign: "center", marginBottom: 32, display: "flex", flexDirection: "column", gap: 12, alignItems: "center" }}>
         <button
           onClick={() => onSimulate(scoresPayload)}
           style={{
@@ -296,7 +395,27 @@ function ResultsView({ answers, onSimulate }) {
         >
           🎭 Practice a Real Situation
         </button>
-        <p style={{ color: "#9CA3AF", fontSize: 12, marginTop: 8 }}>
+        <button
+          onClick={() => onVoice && onVoice(scoresPayload)}
+          style={{
+            padding: "12px 28px", borderRadius: 14, border: "1px solid rgba(99,102,241,0.3)",
+            background: "rgba(99,102,241,0.08)",
+            color: "#A78BFA", fontSize: 14, fontWeight: 700, cursor: "pointer",
+          }}
+        >
+          🎙️ Try Voice Mode
+        </button>
+        <button
+          onClick={() => onShareCard && onShareCard()}
+          style={{
+            padding: "12px 28px", borderRadius: 14, border: "1px solid rgba(236,72,153,0.3)",
+            background: "rgba(236,72,153,0.08)",
+            color: "#F9A8D4", fontSize: 14, fontWeight: 700, cursor: "pointer",
+          }}
+        >
+          🃏 Generate share card
+        </button>
+        <p style={{ color: "#9CA3AF", fontSize: 12, marginTop: 4 }}>
           Use BuddyAI to rehearse a social situation you&apos;re dreading
         </p>
       </div>
@@ -557,6 +676,7 @@ function SimulatorView({ scores }) {
 }
 
 export default function DiagnosticApp() {
+  const API = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
   const [phase, setPhase] = useState("intro");
   const [currentDim, setCurrentDim] = useState(0);
   const [currentQ, setCurrentQ] = useState(0);
@@ -591,6 +711,21 @@ export default function DiagnosticApp() {
   const handleSimulate = (scores) => {
     setSimulatorScores(scores);
     setPhase("simulator");
+  };
+
+  const handleVoice = (scores) => {
+    setSimulatorScores(scores);
+    setPhase("voice");
+  };
+
+  const handleShareCard = async () => {
+    try {
+      const res = await fetch(`${API}/daily-challenge/share-card/anonymous`);
+      const data = await res.json();
+      alert(`Share Card Generated!\n${data.card.badge}\n${data.card.message}`);
+    } catch {
+      alert("Couldn't generate share card. Backend may be offline.");
+    }
   };
 
   const resetApp = () => {
@@ -666,7 +801,7 @@ export default function DiagnosticApp() {
       }}>
         <Nav phase={phase} />
         <div style={{ padding: "32px 20px 60px" }}>
-          <ResultsView answers={answers} onSimulate={handleSimulate} />
+          <ResultsView answers={answers} onSimulate={handleSimulate} onVoice={handleVoice} onShareCard={handleShareCard} />
           <div style={{ textAlign: "center", marginTop: 32 }}>
             <button
               onClick={resetApp}
@@ -679,6 +814,21 @@ export default function DiagnosticApp() {
             </button>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  // ── Voice ──────────────────────────────────────────────────────────────────
+  if (phase === "voice") {
+    return (
+      <div style={{
+        height: "100vh",
+        background: "linear-gradient(145deg, #0F0F1A 0%, #1A1A2E 50%, #16213E 100%)",
+        fontFamily: "'Inter', -apple-system, sans-serif",
+        display: "flex", flexDirection: "column",
+      }}>
+        <Nav phase={phase} />
+        <VoiceView scores={simulatorScores} onSimulate={handleSimulate} />
       </div>
     );
   }
