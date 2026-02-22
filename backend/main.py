@@ -1,34 +1,63 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-import anthropic, os
+import json as _json
+import os
+import threading
+
+import anthropic
 from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 load_dotenv()
 app = FastAPI()
 
-app.add_middleware(CORSMiddleware, allow_origins=["*"],
-allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+OPS_SECRET = os.getenv("OPS_SECRET", "dev-secret")
 
-@app.get("/test")
-def test():
-    try:
-        message = client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=100,
-            messages=[{"role": "user", "content": "Say hello in one sentence."}]
-        )
-        return {"response": message.content[0].text}
-    except anthropic.AuthenticationError:
-        raise HTTPException(status_code=401, detail="Invalid Anthropic API key")
-    except anthropic.APIStatusError as e:
-        if e.status_code == 529:
-            raise HTTPException(status_code=503, detail="Anthropic API overloaded, try again shortly")
-        raise HTTPException(status_code=502, detail=f"Anthropic API error {e.status_code}: {e.message}")
-    except anthropic.APIConnectionError:
-        raise HTTPException(status_code=502, detail="Could not connect to Anthropic API")
+# ── Request models ────────────────────────────────────────────────────────────
 
+class ScoreItem(BaseModel):
+    id: str
+    label: str
+    score: float
+
+class InsightRequest(BaseModel):
+    scores: list[ScoreItem]
+
+class SimulateRequest(BaseModel):
+    situation: str
+    scores: list[ScoreItem]
+    messages: list[dict]
+
+class AssessmentSubmitRequest(BaseModel):
+    scores: list[ScoreItem]
+    user_id: str = "anonymous"
+
+class DailyChallengeRequest(BaseModel):
+    scores: list[ScoreItem] = []
+
+class RegisterRequest(BaseModel):
+    email: str
+    name: str = ""
+
+class VerifyEmailRequest(BaseModel):
+    email: str
+
+
+# ── In-memory stores (demo — no DB required) ──────────────────────────────────
+_lock = threading.Lock()
+_users: dict = {}
+_assessments: list = []
+
+
+# ── Claude helper ─────────────────────────────────────────────────────────────
 
 def _call_claude(system: str, messages: list, max_tokens: int = 300) -> str:
     try:
@@ -49,10 +78,21 @@ def _call_claude(system: str, messages: list, max_tokens: int = 300) -> str:
         raise HTTPException(status_code=502, detail="Could not connect to Anthropic API")
 
 
+# ── Endpoints ─────────────────────────────────────────────────────────────────
+
+@app.get("/test")
+def test():
+    text = _call_claude(
+        system="You are a helpful assistant.",
+        messages=[{"role": "user", "content": "Say hello in one sentence."}],
+        max_tokens=100,
+    )
+    return {"response": text}
+
+
 @app.post("/insight")
-def insight(data: dict):
-    scores = data["scores"]  # [{id, label, score}, ...]
-    score_lines = "\n".join(f"- {s['label']}: {s['score']}/5" for s in scores)
+def insight(data: InsightRequest):
+    score_lines = "\n".join(f"- {s.label}: {s.score}/5" for s in data.scores)
     prompt = (
         f"A person completed a social anxiety wellness assessment. Their scores:\n{score_lines}\n\n"
         "Write exactly 3 sentences as a warm, non-clinical response in second person:\n"
@@ -69,81 +109,73 @@ def insight(data: dict):
 
 
 @app.post("/simulate")
-def simulate(data: dict):
-    situation = data["situation"]
-    scores = data["scores"]  # [{id, label, score}, ...]
-    messages = data["messages"]  # [{role, content}, ...]
-    score_lines = "\n".join(f"- {s['label']}: {s['score']}/5" for s in scores)
+def simulate(data: SimulateRequest):
+    score_lines = "\n".join(f"- {s.label}: {s.score}/5" for s in data.scores)
     system = (
         "You are BuddyAI, a warm and supportive social anxiety coach. "
         "You speak like a calm, trusted friend — never clinical or preachy.\n\n"
         f"The user's anxiety profile:\n{score_lines}\n\n"
-        f"The situation they're preparing for: {situation}\n\n"
+        f"The situation they're preparing for: {data.situation}\n\n"
         "Your role: help them feel prepared and less afraid. Ask thoughtful follow-up questions "
         "to understand their specific fears. Offer gentle reframes that feel realistic — not toxic positivity. "
         "Give concrete tips when they seem ready. Keep each response to 2–4 sentences. "
         "Never minimize their feelings."
     )
-    text = _call_claude(system=system, messages=messages)
+    text = _call_claude(system=system, messages=data.messages)
     return {"response": text}
 
 
-# ── In-memory stores (demo/hackathon — no DB required) ──────────────────────
-_users: dict = {}
-_assessments: list = []
-
-
 @app.post("/auth/register")
-def auth_register(data: dict):
-    email = (data.get("email") or "").strip().lower()
-    name = (data.get("name") or "").strip()
+def auth_register(data: RegisterRequest):
+    email = data.email.strip().lower()
     if not email:
         raise HTTPException(status_code=400, detail="email is required")
-    if email in _users:
-        raise HTTPException(status_code=409, detail="email already registered")
-    user_id = f"usr_{len(_users) + 1}"
-    _users[email] = {"id": user_id, "email": email, "name": name, "verified": False}
+    with _lock:
+        if email in _users:
+            raise HTTPException(status_code=409, detail="email already registered")
+        user_id = f"usr_{len(_users) + 1}"
+        _users[email] = {"id": user_id, "email": email, "name": data.name.strip(), "verified": False}
     return {"user_id": user_id, "email": email, "message": "Verification email sent (demo: any token works)"}
 
 
 @app.post("/auth/verify-email")
-def auth_verify_email(data: dict):
-    email = (data.get("email") or "").strip().lower()
+def auth_verify_email(data: VerifyEmailRequest):
+    email = data.email.strip().lower()
     if not email:
         raise HTTPException(status_code=400, detail="email is required")
-    if email not in _users:
-        raise HTTPException(status_code=404, detail="user not found")
-    _users[email]["verified"] = True
+    with _lock:
+        if email not in _users:
+            raise HTTPException(status_code=404, detail="user not found")
+        _users[email]["verified"] = True
     return {"message": "Email verified successfully", "email": email}
 
 
 @app.post("/assessment/submit")
-def assessment_submit(data: dict):
-    scores = data.get("scores", [])
-    user_id = data.get("user_id", "anonymous")
-    if not scores:
+def assessment_submit(data: AssessmentSubmitRequest):
+    if not data.scores:
         raise HTTPException(status_code=400, detail="scores array is required")
-    assessment_id = f"asmnt_{len(_assessments) + 1}"
-    _assessments.append({"id": assessment_id, "user_id": user_id, "scores": scores})
-    score_lines = "\n".join(f"- {s['label']}: {s['score']}/5" for s in scores)
+    with _lock:
+        assessment_id = f"asmnt_{len(_assessments) + 1}"
+        scores_raw = [s.model_dump() for s in data.scores]
+        _assessments.append({"id": assessment_id, "user_id": data.user_id, "scores": scores_raw})
+    score_lines = "\n".join(f"- {s.label}: {s.score}/5" for s in data.scores)
     prompt = (
         f"A user completed a social anxiety assessment. Scores:\n{score_lines}\n\n"
         "Write 2 warm, encouraging sentences: what their profile reveals, "
         "and one small step they can take today."
     )
-    insight = _call_claude(
+    text = _call_claude(
         system="You are BuddyAI, a supportive social anxiety companion. Speak like a caring friend.",
         messages=[{"role": "user", "content": prompt}],
     )
-    return {"assessment_id": assessment_id, "insight": insight}
+    return {"assessment_id": assessment_id, "insight": text}
 
 
 @app.post("/daily-challenge")
-def daily_challenge(data: dict):
-    scores = data.get("scores", [])
+def daily_challenge(data: DailyChallengeRequest):
     score_lines = (
-        "\n".join(f"- {s['label']}: {s['score']}/5" for s in scores)
-        if scores else "General social anxiety support"
+        "\n".join(f"- {s.label}: {s.score}/5" for s in data.scores)
+        if data.scores else "General social anxiety support"
     )
     prompt = (
         f"User anxiety profile:\n{score_lines}\n\n"
@@ -156,17 +188,22 @@ def daily_challenge(data: dict):
         messages=[{"role": "user", "content": prompt}],
         max_tokens=200,
     )
-    return {"challenge": text}
+    try:
+        parsed = _json.loads(text)
+        return {"challenge": parsed}
+    except _json.JSONDecodeError:
+        return {"challenge": text}
 
 
-# ── Tier 4: Share card ───────────────────────────────────────────────────────
+# ── Tier 4: Share card ────────────────────────────────────────────────────────
 @app.get("/daily-challenge/share-card/{user_id}")
 def share_card(user_id: str):
     """Generate a shareable progress card for a user based on their latest assessment."""
-    assessment = next(
-        (a for a in reversed(_assessments) if a["user_id"] == user_id),
-        None,
-    )
+    with _lock:
+        assessment = next(
+            (a for a in reversed(_assessments) if a["user_id"] == user_id),
+            None,
+        )
     if not assessment:
         return {
             "user_id": user_id,
@@ -199,19 +236,25 @@ def share_card(user_id: str):
     }
 
 
-# ── Tier 5: Ops nightly report ───────────────────────────────────────────────
+# ── Tier 5: Ops nightly report ────────────────────────────────────────────────
 @app.get("/ops/nightly-report")
-def nightly_report():
+def nightly_report(secret: str = Query("")):
     """Operational summary for nightly health check and admin monitoring."""
-    total_users = len(_users)
-    total_assessments = len(_assessments)
+    if secret != OPS_SECRET:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    with _lock:
+        total_users = len(_users)
+        assessments_copy = list(_assessments)
+    total_assessments = len(assessments_copy)
     all_avgs = [
         sum(s["score"] for s in a["scores"]) / len(a["scores"])
-        for a in _assessments if a.get("scores")
+        for a in assessments_copy if a.get("scores")
     ]
     avg_wellness = round(sum(all_avgs) / len(all_avgs), 2) if all_avgs else 0.0
-    flagged = [a["user_id"] for a in _assessments if all_avgs and
-               (sum(s["score"] for s in a["scores"]) / len(a["scores"])) < 2.0]
+    flagged = [
+        a["user_id"] for a in assessments_copy
+        if a.get("scores") and (sum(s["score"] for s in a["scores"]) / len(a["scores"])) < 2.0
+    ]
     return {
         "report": "nightly",
         "version": "v2",

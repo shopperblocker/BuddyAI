@@ -24,13 +24,17 @@ const QUESTIONS = [
 export default function Onboarding() {
   const router = useRouter();
   const [step, setStep] = useState(0);
+  const [checkInAnswers, setCheckInAnswers] = useState<Record<string, string>>({});
   const q = QUESTIONS[step];
   const progress = (step / QUESTIONS.length) * 100;
 
-  const handleSelect = () => {
+  const handleSelect = (opt: string) => {
+    const updated = { ...checkInAnswers, [q.id]: opt };
+    setCheckInAnswers(updated);
     if (step < QUESTIONS.length - 1) {
       setStep(step + 1);
     } else {
+      localStorage.setItem('buddy_checkin', JSON.stringify(updated));
       router.push('/assessment');
     }
   };
@@ -71,7 +75,7 @@ export default function Onboarding() {
             {q.options.map((opt, i) => (
               <button
                 key={opt}
-                onClick={handleSelect}
+                onClick={() => handleSelect(opt)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 14,
                   padding: '12px 18px', borderRadius: 12,

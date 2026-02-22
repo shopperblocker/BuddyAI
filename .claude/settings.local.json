@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd /c/Users/kylek/BuddyAI/frontend && npm run build 2>&1)",
+      "Bash(pkill:*)",
+      "Bash(cmd.exe:*)",
+      "Bash(find:*)",
+      "Bash(head:*)",
+      "Bash(cat:*)"
+    ]
+  }
+}
