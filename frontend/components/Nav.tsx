@@ -57,7 +57,20 @@ export default function Nav() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {session ? (
             <>
-              <Link className="navHover" href="/dashboard">
+              <Link
+                href="/dashboard"
+                style={{
+                  color: 'var(--text-secondary)',
+                  textDecoration: 'none',
+                  fontSize: 'var(--text-xs)',
+                  fontWeight: 500,
+                  padding: '6px 12px',
+                  borderRadius: 'var(--radius-sm)',
+                  transition: 'background var(--duration-fast) var(--ease)',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--accent-light)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+              >
                 Dashboard
               </Link>
               <button

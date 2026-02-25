@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 
 interface Patient {
   id: string;
@@ -74,9 +75,14 @@ export default function ClinicianDashboard() {
             <p style={{ margin: 0, fontSize: 12, color: '#9CA3AF' }}>Clinician insight dashboard</p>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#22C55E' }} />
-          <span style={{ fontSize: 12, color: '#6B7280' }}>Live • {MOCK_PATIENTS.length} patients</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#22C55E' }} />
+            <span style={{ fontSize: 12, color: '#6B7280' }}>Live • {MOCK_PATIENTS.length} patients</span>
+          </div>
+          <Link href="/dashboard" style={{ fontSize: 13, color: '#6B7280', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
+            ← Dashboard
+          </Link>
         </div>
       </div>
 

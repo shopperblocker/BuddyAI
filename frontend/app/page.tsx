@@ -225,8 +225,7 @@ export default async function Home() {
         >
           {DIMENSIONS.map((d, i) => (
             <AnimateIn key={d.label} delay={i * 80}>
-              <div classname="hoverShadowCard"
-            
+              <div className="hoverShadowCard"
                 style={{
                   background: 'var(--surface)',
                   borderRadius: 'var(--radius-card)',

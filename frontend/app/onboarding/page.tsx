@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 const QUESTIONS = [
   {
@@ -102,6 +103,11 @@ export default function Onboarding() {
         <p style={{ color: '#6B7280', fontSize: 12, textAlign: 'center', marginTop: 16 }}>
           Question {step + 1} of {QUESTIONS.length}
         </p>
+        <div style={{ textAlign: 'center', marginTop: 12 }}>
+          <Link href="/dashboard" style={{ color: '#9CA3AF', fontSize: 12, textDecoration: 'underline' }}>
+            ← Back to Dashboard
+          </Link>
+        </div>
       </div>
     </div>
   );

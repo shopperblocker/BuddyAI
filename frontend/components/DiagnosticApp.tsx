@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import SimulatorView from './SimulatorView';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -210,68 +211,89 @@ function RadarChart({ scores, size = 260 }: { scores: number[]; size?: number })
 // ── QuizNav ────────────────────────────────────────────────────────────────────
 
 function QuizNav({ phase }: { phase: string }) {
+  const router = useRouter();
   const steps = ['Assessment', 'Results', 'Simulator'];
-  const phaseToIndex: Record<string, number> = { quiz: 0, results: 1, simulator: 2, voice: 2 };
+  const phaseToIndex: Record<string, number> = { quiz: 0, results: 1, simulator: 2 };
   const currentIdx = phaseToIndex[phase] ?? 0;
 
   return (
     <div
       style={{
         display: 'flex',
-        justifyContent: 'center',
         alignItems: 'center',
-        padding: '12px 0',
+        padding: '12px 16px',
         borderBottom: '1px solid var(--border)',
         background: 'var(--surface)',
       }}
     >
-      {steps.map((label, i) => {
-        const isActive = i === currentIdx;
-        const isDone = i < currentIdx;
-        return (
-          <div key={label} style={{ display: 'flex', alignItems: 'center' }}>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '4px 12px',
-                borderRadius: 99,
-                background: isActive ? 'var(--accent-light)' : 'transparent',
-              }}
-            >
+      <button
+        onClick={() => router.push('/dashboard')}
+        style={{
+          background: 'none',
+          border: 'none',
+          color: 'var(--text-secondary)',
+          fontSize: 13,
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 4,
+          padding: '4px 8px',
+          borderRadius: 'var(--radius-sm)',
+          flexShrink: 0,
+        }}
+      >
+        ← Dashboard
+      </button>
+      <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+        {steps.map((label, i) => {
+          const isActive = i === currentIdx;
+          const isDone = i < currentIdx;
+          return (
+            <div key={label} style={{ display: 'flex', alignItems: 'center' }}>
               <div
                 style={{
-                  width: 18,
-                  height: 18,
-                  borderRadius: '50%',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 9,
-                  fontWeight: 500,
-                  background: isActive ? 'var(--accent)' : isDone ? '#22C55E' : 'var(--border)',
-                  color: isActive || isDone ? 'white' : 'var(--text-secondary)',
+                  gap: 6,
+                  padding: '4px 12px',
+                  borderRadius: 99,
+                  background: isActive ? 'var(--accent-light)' : 'transparent',
                 }}
               >
-                {isDone ? '✓' : i + 1}
+                <div
+                  style={{
+                    width: 18,
+                    height: 18,
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 9,
+                    fontWeight: 500,
+                    background: isActive ? 'var(--accent)' : isDone ? '#22C55E' : 'var(--border)',
+                    color: isActive || isDone ? 'white' : 'var(--text-secondary)',
+                  }}
+                >
+                  {isDone ? '✓' : i + 1}
+                </div>
+                <span
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 500,
+                    color: isActive ? 'var(--accent)' : isDone ? '#22C55E' : 'var(--text-secondary)',
+                  }}
+                >
+                  {label}
+                </span>
               </div>
-              <span
-                style={{
-                  fontSize: 12,
-                  fontWeight: 500,
-                  color: isActive ? 'var(--accent)' : isDone ? '#22C55E' : 'var(--text-secondary)',
-                }}
-              >
-                {label}
-              </span>
+              {i < steps.length - 1 && (
+                <div style={{ width: 16, height: 1, background: 'var(--border)' }} />
+              )}
             </div>
-            {i < steps.length - 1 && (
-              <div style={{ width: 16, height: 1, background: 'var(--border)' }} />
-            )}
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
+      <div style={{ width: 90, flexShrink: 0 }} />
     </div>
   );
 }
@@ -282,14 +304,12 @@ function ResultsView({
   answers,
   insight,
   onSimulate,
-  onVoice,
   onShareCard,
   onDashboard,
 }: {
   answers: Answers;
   insight: InsightData;
   onSimulate: (scores: ScorePayload[]) => void;
-  onVoice: (scores: ScorePayload[]) => void;
   onShareCard: () => void;
   onDashboard: () => void;
 }) {
@@ -480,24 +500,6 @@ function ResultsView({
           Practice a Real Situation →
         </button>
         <button
-          onClick={() => onVoice(scoresPayload)}
-          style={{
-            padding: '12px 28px',
-            borderRadius: 'var(--radius-button)',
-            border: '1px solid var(--border)',
-            background: 'var(--surface)',
-            color: 'var(--text)',
-            fontSize: 'var(--text-xs)',
-            fontWeight: 500,
-            cursor: 'pointer',
-            width: '100%',
-            maxWidth: 320,
-            boxShadow: 'var(--shadow-sm)',
-          }}
-        >
-          Try Voice Mode
-        </button>
-        <button
           onClick={onShareCard}
           style={{
             padding: '12px 28px',
@@ -532,365 +534,6 @@ function ResultsView({
           Back to Dashboard
         </button>
       </div>
-    </div>
-  );
-}
-
-// ── VoiceView ─────────────────────────────────────────────────────────────────
-
-function VoiceView({
-  scores,
-  onSimulate,
-}: {
-  scores: ScorePayload[] | null;
-  onSimulate: (scores: ScorePayload[]) => void;
-}) {
-  const [transcript, setTranscript] = useState('');
-  const [voiceReply, setVoiceReply] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const handleVoiceSubmit = async () => {
-    if (!transcript.trim() || loading) return;
-    setLoading(true);
-    try {
-      const res = await fetch('/api/simulate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          situation: transcript,
-          scores,
-          messages: [{ role: 'user', content: transcript }],
-        }),
-      });
-      const data = await res.json();
-      setVoiceReply(data.response);
-    } catch {
-      setVoiceReply("Couldn't connect. Please try again.");
-    }
-    setLoading(false);
-  };
-
-  return (
-    <div style={{ maxWidth: 520, margin: '0 auto', padding: 'var(--space-5) var(--space-3)' }}>
-      <div style={{ textAlign: 'center', marginBottom: 'var(--space-4)' }}>
-        <div style={{ fontSize: 36, marginBottom: 12 }}>🎙️</div>
-        <h2 style={{ color: 'var(--text)', fontSize: 'var(--text-md)', fontWeight: 500, margin: '0 0 8px' }}>
-          Voice Mode
-        </h2>
-        <p style={{ color: 'var(--text-secondary)', fontSize: 13, margin: 0 }}>
-          Speak or type your thoughts — BuddyAI responds with guided coaching.
-        </p>
-      </div>
-
-      <div
-        style={{
-          background: 'var(--surface)',
-          borderRadius: 'var(--radius-card)',
-          padding: 'var(--space-3)',
-          border: '1px solid var(--border)',
-          marginBottom: 12,
-          boxShadow: 'var(--shadow-sm)',
-        }}
-      >
-        <p style={{ color: 'var(--text-secondary)', fontSize: 11, fontWeight: 500, margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-          Your message
-        </p>
-        <textarea
-          value={transcript}
-          onChange={(e) => setTranscript(e.target.value)}
-          placeholder="Type or paste what you want to say aloud..."
-          rows={4}
-          style={{
-            width: '100%',
-            padding: '12px',
-            borderRadius: 'var(--radius-sm)',
-            boxSizing: 'border-box',
-            background: 'var(--bg)',
-            border: '1px solid var(--border)',
-            color: 'var(--text)',
-            fontSize: 'var(--text-xs)',
-            resize: 'vertical',
-            outline: 'none',
-            fontFamily: 'inherit',
-          }}
-        />
-      </div>
-
-      <button
-        onClick={handleVoiceSubmit}
-        disabled={!transcript.trim() || loading}
-        style={{
-          width: '100%',
-          padding: '13px',
-          borderRadius: 'var(--radius-button)',
-          border: 'none',
-          background: transcript.trim() && !loading ? 'var(--accent)' : 'var(--border)',
-          color: transcript.trim() && !loading ? 'white' : 'var(--text-secondary)',
-          fontSize: 'var(--text-xs)',
-          fontWeight: 500,
-          cursor: transcript.trim() && !loading ? 'pointer' : 'not-allowed',
-          marginBottom: 16,
-        }}
-      >
-        {loading ? 'Processing...' : 'Send →'}
-      </button>
-
-      {voiceReply && (
-        <div
-          style={{
-            background: 'var(--accent-light)',
-            borderRadius: 'var(--radius-card)',
-            padding: 'var(--space-3)',
-            border: '1px solid var(--border)',
-          }}
-        >
-          <p style={{ color: 'var(--accent)', fontSize: 11, fontWeight: 500, margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            BuddyAI Response
-          </p>
-          <p style={{ color: 'var(--text)', fontSize: 'var(--text-xs)', lineHeight: 1.7, margin: '0 0 16px' }}>{voiceReply}</p>
-          <button
-            onClick={() => scores && onSimulate(scores)}
-            style={{
-              padding: '9px 18px',
-              borderRadius: 'var(--radius-sm)',
-              border: 'none',
-              background: 'var(--accent)',
-              color: 'white',
-              fontSize: 13,
-              fontWeight: 500,
-              cursor: 'pointer',
-            }}
-          >
-            Continue in Simulator →
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── SimulatorView ─────────────────────────────────────────────────────────────
-
-function SimulatorView({ scores }: { scores: ScorePayload[] | null }) {
-  const [situation, setSituation] = useState('');
-  const [started, setStarted] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const MAX_TURNS = 6;
-
-  const userTurnCount = messages.filter((m) => m.role === 'user').length;
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, loading]);
-
-  const send = async (content: string) => {
-    if (loading || userTurnCount >= MAX_TURNS) return;
-    const updated: ChatMessage[] = [...messages, { role: 'user', content }];
-    setMessages(updated);
-    setInput('');
-    setLoading(true);
-    try {
-      const res = await fetch('/api/simulate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ situation, scores, messages: updated }),
-      });
-      if (!res.ok) throw new Error(String(res.status));
-      const data = await res.json();
-      setMessages((prev) => [...prev, { role: 'assistant', content: data.response }]);
-    } catch {
-      setMessages((prev) => [
-        ...prev,
-        { role: 'assistant', content: 'I had trouble connecting. Please try again.' },
-      ]);
-    }
-    setLoading(false);
-  };
-
-  const handleStart = () => {
-    if (!situation.trim()) return;
-    setStarted(true);
-    send(`I'm feeling anxious about: ${situation}`);
-  };
-
-  if (!started) {
-    return (
-      <div style={{ maxWidth: 520, margin: '0 auto', padding: 'var(--space-5) var(--space-3)' }}>
-        <div style={{ textAlign: 'center', marginBottom: 'var(--space-4)' }}>
-          <div style={{ fontSize: 36, marginBottom: 12 }}>🎭</div>
-          <h2 style={{ color: 'var(--text)', fontSize: 'var(--text-md)', fontWeight: 500, margin: '0 0 8px' }}>
-            Practice a Real Situation
-          </h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.7, margin: 0 }}>
-            Tell BuddyAI what social situation you&apos;re dreading. It&apos;ll coach you through it like a calm, trusted friend.
-          </p>
-        </div>
-        <textarea
-          value={situation}
-          onChange={(e) => setSituation(e.target.value)}
-          placeholder="e.g. I have a job interview tomorrow, I need to speak up in a meeting..."
-          rows={4}
-          style={{
-            width: '100%',
-            padding: '14px',
-            borderRadius: 'var(--radius-card)',
-            boxSizing: 'border-box',
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            color: 'var(--text)',
-            fontSize: 'var(--text-xs)',
-            lineHeight: 1.7,
-            resize: 'vertical',
-            outline: 'none',
-            fontFamily: 'inherit',
-            boxShadow: 'var(--shadow-sm)',
-          }}
-        />
-        <button
-          onClick={handleStart}
-          disabled={!situation.trim()}
-          style={{
-            width: '100%',
-            marginTop: 12,
-            padding: '13px',
-            borderRadius: 'var(--radius-button)',
-            border: 'none',
-            background: situation.trim() ? 'var(--accent)' : 'var(--border)',
-            color: situation.trim() ? 'white' : 'var(--text-secondary)',
-            fontSize: 'var(--text-xs)',
-            fontWeight: 500,
-            cursor: situation.trim() ? 'pointer' : 'not-allowed',
-          }}
-        >
-          Start Practice Session →
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      style={{
-        maxWidth: 520,
-        margin: '0 auto',
-        padding: '0 var(--space-3) var(--space-3)',
-        display: 'flex',
-        flexDirection: 'column',
-        flex: 1,
-        overflow: 'hidden',
-      }}
-    >
-      <div
-        style={{
-          padding: '10px 14px',
-          borderRadius: 'var(--radius-sm)',
-          background: 'var(--surface)',
-          border: '1px solid var(--border)',
-          margin: '14px 0 8px',
-          boxShadow: 'var(--shadow-sm)',
-        }}
-      >
-        <p style={{ fontSize: 10, color: 'var(--text-secondary)', margin: '0 0 2px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-          Practicing for
-        </p>
-        <p style={{ fontSize: 13, color: 'var(--text)', margin: 0, fontWeight: 500 }}>{situation}</p>
-      </div>
-
-      <div style={{ textAlign: 'right', marginBottom: 8 }}>
-        <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-          {Math.max(0, MAX_TURNS - userTurnCount)} turns remaining
-        </span>
-      </div>
-
-      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {messages.map((msg, i) => (
-          <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
-            <div
-              style={{
-                maxWidth: '82%',
-                padding: '11px 14px',
-                borderRadius: msg.role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
-                background: msg.role === 'user' ? 'var(--accent)' : 'var(--surface)',
-                color: msg.role === 'user' ? 'white' : 'var(--text)',
-                fontSize: 'var(--text-xs)',
-                lineHeight: 1.6,
-                border: msg.role === 'assistant' ? '1px solid var(--border)' : 'none',
-                boxShadow: 'var(--shadow-sm)',
-              }}
-            >
-              {msg.role === 'assistant' && (
-                <span style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 500, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                  BuddyAI
-                </span>
-              )}
-              {msg.content}
-            </div>
-          </div>
-        ))}
-        {loading && (
-          <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-            <div style={{ padding: '11px 14px', borderRadius: '14px 14px 14px 4px', background: 'var(--surface)', color: 'var(--text-secondary)', fontSize: 'var(--text-xs)', border: '1px solid var(--border)' }}>
-              <span style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 500, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>BuddyAI</span>
-              thinking...
-            </div>
-          </div>
-        )}
-        {userTurnCount >= MAX_TURNS && !loading && (
-          <div style={{ textAlign: 'center', padding: 14, borderRadius: 'var(--radius-card)', background: 'var(--accent-light)', border: '1px solid var(--border)' }}>
-            <p style={{ color: 'var(--accent)', fontSize: 'var(--text-xs)', fontWeight: 500, margin: '0 0 4px' }}>Session complete</p>
-            <p style={{ color: 'var(--text-secondary)', fontSize: 12, margin: 0 }}>You&apos;ve completed 6 turns. You&apos;ve got this.</p>
-          </div>
-        )}
-        <div ref={bottomRef} />
-      </div>
-
-      {userTurnCount < MAX_TURNS && (
-        <div style={{ display: 'flex', gap: 8, paddingTop: 10, borderTop: '1px solid var(--border)', marginTop: 8 }}>
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey && input.trim() && !loading) {
-                e.preventDefault();
-                send(input.trim());
-              }
-            }}
-            placeholder="Reply to BuddyAI..."
-            disabled={loading}
-            style={{
-              flex: 1,
-              padding: '11px 14px',
-              borderRadius: 'var(--radius-button)',
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              color: 'var(--text)',
-              fontSize: 'var(--text-xs)',
-              outline: 'none',
-              fontFamily: 'inherit',
-              boxShadow: 'var(--shadow-sm)',
-            }}
-          />
-          <button
-            onClick={() => input.trim() && !loading && send(input.trim())}
-            disabled={loading || !input.trim()}
-            style={{
-              padding: '11px 16px',
-              borderRadius: 'var(--radius-button)',
-              border: 'none',
-              background: input.trim() && !loading ? 'var(--accent)' : 'var(--border)',
-              color: input.trim() && !loading ? 'white' : 'var(--text-secondary)',
-              fontWeight: 500,
-              fontSize: 16,
-              cursor: input.trim() && !loading ? 'pointer' : 'not-allowed',
-            }}
-          >
-            →
-          </button>
-        </div>
-      )}
     </div>
   );
 }
@@ -1052,11 +695,6 @@ export default function DiagnosticApp() {
     setPhase('simulator');
   };
 
-  const handleVoice = (scores: ScorePayload[]) => {
-    setSimulatorScores(scores);
-    setPhase('voice');
-  };
-
   const handleShareCard = async () => {
     try {
       const res = await fetch('/api/share-card');
@@ -1157,6 +795,21 @@ export default function DiagnosticApp() {
             Begin Assessment →
           </button>
           <p style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 10 }}>Takes about 3–5 minutes</p>
+          <button
+            onClick={() => router.push('/dashboard')}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-secondary)',
+              fontSize: 13,
+              cursor: 'pointer',
+              marginTop: 8,
+              textDecoration: 'underline',
+              textDecorationColor: 'var(--border)',
+            }}
+          >
+            ← Back to Dashboard
+          </button>
         </div>
       </div>
     );
@@ -1171,7 +824,6 @@ export default function DiagnosticApp() {
           answers={answers}
           insight={insight}
           onSimulate={handleSimulate}
-          onVoice={handleVoice}
           onShareCard={handleShareCard}
           onDashboard={() => router.push('/dashboard')}
         />
@@ -1193,17 +845,6 @@ export default function DiagnosticApp() {
             ↻ Retake Assessment
           </button>
         </div>
-        {shareCard && <ShareCardModal card={shareCard} onClose={() => setShareCard(null)} />}
-      </div>
-    );
-  }
-
-  // ── Voice ──────────────────────────────────────────────────────────────────
-  if (phase === 'voice') {
-    return (
-      <div style={{ height: '100vh', background: 'var(--bg)', fontFamily: 'inherit', display: 'flex', flexDirection: 'column' }}>
-        <QuizNav phase={phase} />
-        <VoiceView scores={simulatorScores} onSimulate={handleSimulate} />
         {shareCard && <ShareCardModal card={shareCard} onClose={() => setShareCard(null)} />}
       </div>
     );
